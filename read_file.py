@@ -81,7 +81,9 @@ class Table_maker():
                 # if it can't find the parent comment then the function will return False
                 parent_comment = self.find_parent_comment(row["parent_id"])
 
-                if not parent_comment:
+                # using the textual version of the false becuase this 
+                # is going to be placed in the text for parent_comment
+                if parent_comment == "False":
                     # if in here then we will need to make a row
                     # there is no parent comment
                     # TODO need to add to the transaction to make a row
@@ -99,6 +101,14 @@ class Table_maker():
                 
                 
 
+    def find_child_comment(self, pid:str):
+        """
+        This is the method to find a child comment.  It will
+        do this by looking for comments that where the comment_id and the
+        parent_id are not the same id.  This will mean that it is a child.
+        This function will return the child_comment_id if found or will return
+        False.
+        """
 
 
 
@@ -116,14 +126,18 @@ class Table_maker():
             self.cursor.execute(sql_str)
             result = self.cursor.fetchone()[0]
             if result == None:
-                return False
+                return "False" # this will be place into the table of parent_comment
             return result
 
         except Exception as e:
             print("Exception finding parent comment --", e)
-            return False
+            return "False"
 
-
+    # TODO need to make a function that will return the sql_string 
+    # for finding with the parent_id, will determing what to select
+    # will determing if the comment_id == the parent_id. 
+    # Will determine if need an "and" with the where clause.
+    
             
 
     def find_comment_score(self, the_score:int, pid:str):
@@ -138,7 +152,10 @@ class Table_maker():
         it exists.  This is to allow us to modify some of the data
         with the new data, that has a greater score.
         """
-        sql_str f"SELECT comment_id, score   FROM convos WHERE parent_id = {pid} LIMIT 1;"
+        # TODO need to fix the string checking to see if the parent comment is
+        # Null or "False" -- this means that this comment
+        # has not been tied to a parent comment
+        sql_str f"SELECT comment_id, score   FROM convos WHERE parent_id = {pid}  AND parent_comment <> 'False'LIMIT 1;"
 
         self.cursor.execute(sql_str)
         result = self.cursor.fetchone()[0]
