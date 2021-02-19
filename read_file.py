@@ -52,10 +52,13 @@ class Table_maker():
 
         This function will insert a row if the comment has an acceptable score and also if th
         """
+        # counter is a variable to count the number of iterations 
         counter = 0
+        # num_rows is a variable to count the number of comment--responce rows are formed
+        num_rows = 0
         # This is the variable that is used to break out the the function after the number of iterations
         # that were asked for 
-        # TODO need to create the breaking out when the number of iterations is reached
+        
         
         with open(file_path, "rb", buffering=file_buffer_size) as f:
             for row in f:
@@ -63,43 +66,81 @@ class Table_maker():
                 if counter >= num_iter and num_iter != -1:
                     return
                 # to get out with the specified number of rows
-                if num_rows >= num_rows_inserted:
+                if num_rows >= num_rows_inserted and num_rows_inserted != -1:
                     return
                 counter += 1 
                 # get the row and build the transaction list to do the adding to the database
                 body = self.get_data(row["body"], max_num_tokens=self.max_num_tokens)
                 # need to have a comment that at least has a score of 2 and is a clean text
-                if body == False and row["score"] >= 2:
+                if body == False or row["score"] <= 2:
                     # skipping all adding any of the text from this reddit file if 
                     # there is something wrong with the body of the text.
                     continue
                 
                 parent_id = row["parent_id"]
-                commnent_id = row["id"]
+                comment_id = row["id"]
                 score = row["score"]
-                # trying to find the parent comment and put that in the same one
-                # if it can't find the parent comment then the function will return False
+                
+                # checking to see if this a parent comment
+                # this means that the id will be the same as the parent_comment.
+                if comment_id == parent_id:
+                    # will insert the parent row into the table.
+                    self.insert_row((parent_id, comment_id, body, "False", score))
+                    continue
+                    
+                # trying to find the parent comment of this row
+                # if it can't find the parent comment then the function will return "False" as a string
                 parent_comment = self.find_parent_comment(row["parent_id"])
 
+                # making result a variable that can be seen in the whole function
+                result = None
                 # using the textual version of the false becuase this 
                 # is going to be placed in the text for parent_comment
                 if parent_comment == "False":
-                    # if in here then we will need to make a row
-                    # there is no parent comment
-                    # TODO need to add to the transaction to make a row
+                    # can't find a row that has a parent comment
+                    # will add the row to the database with no parent comment found
+                    # need to check if there is a row already in the database that has a lower score than this one
+                    # if there is then we will replace if not then we will discard this one.
 
+                    # checking to see if we are just going to update a row that is already present
+                    # in the database with a comment that is of a higher score
+                    result = self.find_comment_score(parent_id, score, has_parent_comment=False)
+                else:
+                    result = self.find_comment_score(parent_id, score, has_parent_comment=True)
 
-                # checking to see if we are just going to update a row that is already present
-                # in the database with a comment that is of a higher score
-                result = find_comment_score(parent_id, score)
                 if result:
-                    # if in here the score of the current row is greater than another 
-                    # that is already in the database with the same parent_id
-                    self.update_prev_row(result, parent_id, comment_id, score, body, parent_comment)
-                    continue
+                    if result !=  1:
+                        # if in here the score of the current row score is greater than another 
+                        # that is already in the database with the same parent_id
+                        # will update the row that is already in the 
+                        self.update_prev_row(result, parent_id, comment_id, score, body, parent_comment)
+                    else:
+                        # inserting the new row in the database
+                        # it also was unable to find and other comments (rows) from the same parent 
+                        self.insert_row((parent_id, comment_id, body, parent_comment, score))
+
+                        if parent_comment != "False":
+                            num_rows += 1
                 
                 
                 
+                
+    def insert_row(self, the_row:tuple):
+        """
+        This funtion will try to insert the row into the table 
+        """
+        sql_str = """
+            INSERT INTO convos (parent_id, commnent_id, body, parent_comment, score)
+            VALUES(?,?,?,?,?)
+        
+        """
+        try:
+            self.cursor.execute(sql_str, the_row)
+            self.connection.commit()
+        except Exception as e:
+            print("The row insert did not work", e)
+        
+
 
     def find_child_comment(self, pid:str):
         """
@@ -133,6 +174,8 @@ class Table_maker():
             print("Exception finding parent comment --", e)
             return "False"
 
+    
+
     # TODO need to make a function that will return the sql_string 
     # for finding with the parent_id, will determing what to select
     # will determing if the comment_id == the parent_id. 
@@ -140,7 +183,7 @@ class Table_maker():
     
             
 
-    def find_comment_score(self, the_score:int, pid:str):
+    def find_comment_score(self, the_score:int, pid:str, has_parent_comment:bool):
         """
         This function will look for a comment (row) in the database 
         that has the id in the parent id and has a score that is 
@@ -148,24 +191,33 @@ class Table_maker():
         This function will return False if there is no comment that 
         has a lesser score.
 
+        :of_parent: bool -- This is a flag to decide if we want to 
+        make sure that we are just looking in a parent comment and not 
+        another child comment.
+
         This function will return the comment_id of this row if 
         it exists.  This is to allow us to modify some of the data
         with the new data, that has a greater score.
+
+        :returns:   False -- the score is less than the row score already in the database
+                    1 -- Cannot find any row in the database that has been added already
+                    comment_id -- the comment_id of the row in the database
         """
-        # TODO need to fix the string checking to see if the parent comment is
-        # Null or "False" -- this means that this comment
-        # has not been tied to a parent comment
-        sql_str f"SELECT comment_id, score   FROM convos WHERE parent_id = {pid}  AND parent_comment <> 'False'LIMIT 1;"
+        
+        sql_str = f"SELECT comment_id, score   FROM convos WHERE parent_id = {pid} and comment_id <> {pid} LIMIT 1;"
+
+        if has_parent_comment:
+            sql_str = f"SELECT comment_id, score FROM convos WHERE parent_id = {pid} and parent_comment <> 'False'  and comment_id <> {pid} LIMIT 1;"
 
         self.cursor.execute(sql_str)
         result = self.cursor.fetchone()[0]
         # if there is no parent id then will return false
         if result == None:
-            return False
+            return 1
         # checking to see if the score passed in is higher
         if result[1] > the_score:
             return False
-        return comment_id
+        return result[0]
     
 
     def update_prev_row(self, prev_comment_id, parent_id, comment_id, score, body, parent_comment):
