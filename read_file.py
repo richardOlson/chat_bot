@@ -7,8 +7,16 @@ import sqlite3
 
 
 class Table_maker():
+    """
+        db: str:    The path to the database
+
+        max_num_tokens: int: The maximum number of tokens that we will want to use
+            if the number is -1 then no limit is placed on the number of tokens.
+        
+        """
 
     def __init__(self, db:str, max_num_tokens:int =-1):
+        
         self.cursor = self.get_connection_and_cursor(db)
         self.transaction = []
         self.max_num_tokens = max_num_tokens
@@ -264,3 +272,7 @@ class Table_maker():
         
             
 
+if __name__ == "__main__":
+    # getting the class
+    t = Table_maker("reddit_data.db")
+    t.create_table()
