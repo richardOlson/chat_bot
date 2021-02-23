@@ -90,15 +90,16 @@ class Table_maker():
                     # in here means that the link and the parent id are the same so it is a top
                     # level comment.
                         self.insert_row((row["parent_id"], row["id"], row["body"], "None", row["score"]))
-                        print(f"Have put in the database a parent row")
+                        
                         continue
                 # need to have a comment that at least has a score of 2 and is a clean text
-                if row["score"] <= 2 and body !=False:
+                if row["score"] >= 2 and body !=False:
                     parent_id = row["parent_id"]
                     comment_id = row["id"]
                     score = row["score"]
                     # checking to find if there is a parent comment
-                    parent_comment = self.find_parent_comment(parent_id)
+
+                    parent_comment = self.find_parent_comment(self.not_Full_name(parent_id))
                     if parent_comment != "False":
                         # has a parent comment
                         value = self.find_comment_score(score, parent_id)
@@ -107,15 +108,16 @@ class Table_maker():
                             if value != 1:
                                 # need to replace the body text for the on that is in there
                                 self.update_prev_row(value, parent_id, comment_id, score, body, parent_comment)
+                                print("have updated a row")
                             else:
                                 # no row with a parent id the same so will put this row in 
                                 self.insert_row((parent_id, comment_id, body, parent_comment, score))
-
+                               
                                 if parent_comment != "False":
                                     num_rows += 1
                 
                 else:
-                    print("We are skipping the iteration of the data from of this point")
+                    
                     continue
                 
                 
@@ -155,7 +157,7 @@ class Table_maker():
             self.connection.commit()
         except Exception as e:
             print("The row insert did not work--->", e)
-            breakpoint()
+            
 
 
     def find_child_comment(self, pid:str):
@@ -218,7 +220,7 @@ class Table_maker():
                     comment_id -- the comment_id of the row in the database
         """
         
-        sql_str = f"SELECT score, comment_id   FROM convos WHERE parent_id = {pid} LIMIT 1;"
+        sql_str = f"SELECT score, comment_id   FROM convos WHERE parent_id = '{pid}' LIMIT 1;"
 
         
         self.cursor.execute(sql_str)
@@ -227,10 +229,11 @@ class Table_maker():
         # if there is no parent id then will return false
         if result == None:
             return 1
+        breakpoint()
         # checking to see if the score passed in is higher
-        if result[0][0] > the_score:
+        if result[0] > the_score:
             return False
-        return result[0][1]
+        return result[1]
     
 
     def update_prev_row(self, prev_comment_id, parent_id, comment_id, score, body, parent_comment):
@@ -265,6 +268,7 @@ class Table_maker():
         if clean:
             if profane_predict([body])[0] == 1:
                 # is a bad text
+                print("That was a profane text")
                 return False
         if body == "[deleted]" or body == "[removed]":
             return False
