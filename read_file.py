@@ -255,7 +255,7 @@ class Table_maker():
                     
         
         try:
-            self.cursor.execute(sql_str)
+            self.cursor.execute(sql_str, the_tuple)
             self.connection.commit()
         except Exception as e:
             print("update_prev_row  --", e)
