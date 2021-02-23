@@ -89,10 +89,11 @@ class Table_maker():
                     if row["link_id"] == row["parent_id"] and body != False:
                     # in here means that the link and the parent id are the same so it is a top
                     # level comment.
-                        self.insert_row((row["parent_id"], row["comment_id"], row["body"], "None", row["score"]))
-               
+                        self.insert_row((row["parent_id"], row["id"], row["body"], "None", row["score"]))
+                        print(f"Have put in the database a parent row")
+                        continue
                 # need to have a comment that at least has a score of 2 and is a clean text
-                if row["score"] <= 2:
+                if row["score"] <= 2 and body !=False:
                     parent_id = row["parent_id"]
                     comment_id = row["id"]
                     score = row["score"]
@@ -124,7 +125,18 @@ class Table_maker():
                 
                
             
-            
+    def not_Full_name(self, id:str):
+        """
+        This is the function remove the prefix portion of the 
+        full name of the id.  This is to make it be able to match the comment_id.
+
+        Returns:    Will remove the prefix and return just the id.
+        """
+        id = id.split("_")
+        if len(id) == 2:
+            return id[1]
+        else:
+            return id[0]       
                 
                 
                 
