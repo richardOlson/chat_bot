@@ -107,7 +107,7 @@ class Table_maker():
                             # Will be either a 1 or True
                             if value != 1:
                                 # need to replace the body text for the on that is in there
-                                self.update_prev_row(value, parent_id, comment_id, score, body, parent_comment)
+                                self.update_prev_row((parent_id, comment_id, score, body, parent_comment, value))
                                 print("have updated a row")
                             else:
                                 # no row with a parent id the same so will put this row in 
@@ -229,22 +229,31 @@ class Table_maker():
         # if there is no parent id then will return false
         if result == None:
             return 1
-        breakpoint()
+        
         # checking to see if the score passed in is higher
         if result[0] > the_score:
             return False
         return result[1]
     
 
-    def update_prev_row(self, prev_comment_id, parent_id, comment_id, score, body, parent_comment):
+    def update_prev_row(self, the_tuple:tuple):
         """
         This is the method that will then put some data into the 
         row that is already in the database.  It is updating 
         with new data that has a higher score and is the child comment 
         """
-        sql_str = f"UPDATE convos SET 'parent_id' =  {parent_id} 'comment_id' = {comment_id} 'score' = {score} "  \
-            f"'child_responce'={body} parent_comment={parent_comment}"  \
-            f"WHERE comment_id = {prev_comment_id};" 
+
+        sql_str = """ 
+                UPDATE convos
+                SET parent_id = ?,
+                comment_id = ?,
+                score = ?,
+                child_reponce = ?, 
+                parent_comment = ?
+                WHERE comment_id = ?
+                """
+                    
+        
         try:
             self.cursor.execute(sql_str)
             self.connection.commit()
@@ -268,7 +277,6 @@ class Table_maker():
         if clean:
             if profane_predict([body])[0] == 1:
                 # is a bad text
-                print("That was a profane text")
                 return False
         if body == "[deleted]" or body == "[removed]":
             return False
