@@ -130,3 +130,6 @@ dmypy.json
 
 # datafile
 RC_2018-05
+reddit_data.db
+*.csv
+
