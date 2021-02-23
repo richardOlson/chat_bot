@@ -248,7 +248,7 @@ class Table_maker():
                 SET parent_id = ?,
                 comment_id = ?,
                 score = ?,
-                child_reponce = ?, 
+                child_responce = ?, 
                 parent_comment = ?
                 WHERE comment_id = ?
                 """
