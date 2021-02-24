@@ -312,6 +312,6 @@ if __name__ == "__main__":
     # the path to the data
     file_path = r"C:\Users\porte\Richard_python\nlp_projects\chat_bot_data\RC_2018-05"
     # now doing the reading in the data
-    t.build_table(file_path, file_buffer_size=1000, num_iter=20000, filePos=t.file_pos)
+    t.build_table(file_path, file_buffer_size=1000, num_iter=100000, filePos=t.file_pos)
     print(f"The file position is {t.file_pos}")
   
