@@ -20,6 +20,8 @@ class Table_maker():
         self.cursor = self.get_connection_and_cursor(db)
         self.transaction = []
         self.max_num_tokens = max_num_tokens
+        self.file_pos = 0
+        self.f = None
 
     def get_connection_and_cursor(self, db:str):
         try:
@@ -47,7 +49,8 @@ class Table_maker():
             """
         )
 
-    def build_table(self, file_path:str, file_buffer_size:int, clean=True, num_iter=-1, num_rows_inserted:int= -1):
+    def build_table(self, file_path:str, file_buffer_size:int, clean=True, 
+                    num_iter=-1, num_rows_inserted:int= -1, filePos=0):
         """
         This is the function that will build the table by running through the data and doing the things 
         that is needed to the data to get it ready to be entered into the database table.
@@ -67,17 +70,25 @@ class Table_maker():
         num_rows = 0
         # This is the global variable for the body of the text
         body = None
+        iterVal = True
         
         with open(file_path, "r", buffering=file_buffer_size) as f:
-            for row in f:
+            self.f = f
+            # setting it to be able to go to a certain position when starting
+            f.seek(filePos)
+            while iterVal:
+
+                row = f.readline()
+            
                 row = json.loads(row)
                 
                 # checking to see if we need to get out of the function
                 if counter >= num_iter and num_iter != -1:
-                    return
+                    break
                 # to get out with the specified number of rows
                 if num_rows >= num_rows_inserted and num_rows_inserted != -1:
-                    return
+                    break
+
                 counter += 1 
 
 
@@ -112,7 +123,7 @@ class Table_maker():
                             else:
                                 # no row with a parent id the same so will put this row in 
                                 self.insert_row((parent_id, comment_id, body, parent_comment, score))
-                               
+                                
                                 if parent_comment != "False":
                                     num_rows += 1
                 
@@ -121,9 +132,12 @@ class Table_maker():
                     continue
                 
                 
-           
-            if counter % 100 == 0:
-                print(f"There have been {num_rows} rows created with pairs")    
+            
+                if counter % 100 == 0:
+                    print(f"There have been {num_rows} rows created with pairs")   
+
+            self.file_pos = self.f.tell() 
+        
                 
                
             
@@ -298,4 +312,6 @@ if __name__ == "__main__":
     # the path to the data
     file_path = r"C:\Users\porte\Richard_python\nlp_projects\chat_bot_data\RC_2018-05"
     # now doing the reading in the data
-    t.build_table(file_path, file_buffer_size=1000,num_rows_inserted=1000, num_iter=10000)
+    t.build_table(file_path, file_buffer_size=1000, num_iter=20000, filePos=t.file_pos)
+    print(f"The file position is {t.file_pos}")
+  
