@@ -20,7 +20,7 @@ def predict_prob(texts):
 
 
 if __name__ == "__main__":
-  s = "Blacks don't look good in blue clothes, just kidding they look great."
+  s = "The hell is that?  What kind of 'guy just picks up a girl and carries her away while you're talking to her?"
   t = "I love dogs."
 
   print(f"Trying the functions to see how well this is working")

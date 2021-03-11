@@ -5,21 +5,23 @@
 import os
 import sqlite3
 # used to make sure that the data is clean and not bad data
-from profanity_check import predict as profane_predict
+from profanity_check.profanity_check import predict_prob
 
+
+# "C:\Users\porte\Richard_python\nlp_projects\chat_bot\cornell movie-dialogs corpus"
 class Cornell_reader():
 
     
     sep = "+++$+++" # the separator used in the files
-    movie_conv_path = os.path.join(os.path.curdir, "..",  "cornell movie-dialogs/movie_conversation.txt")
-    movie_lines_path = os.path.join(os.path.curdir, "..", "cornell movie-dialogs/movie_lines.txt")
-    db = os.path.join(os.path.curdir, "..", "conversation_pairs.db")
+    movie_conv_path = os.path.join(os.path.dirname(__file__), "cornell movie-dialogs corpus/movie_conversation.txt")
+    movie_lines_path = os.path.join(os.path.dirname(__file__), "cornell movie-dialogs corpus/movie_lines.txt")
+    db = os.path.join(os.path.dirname(__file__), "movie.db")
 
     def connect(self):
         """
         method to connect the databases
         """
-        self.con = sqlite3.connect("conversation_pairs.db")
+        self.con = sqlite3.connect("movie.db")
         self.cursor = self.con.cursor()
         return self.cursor
 
@@ -31,7 +33,7 @@ class Cornell_reader():
         # this will overwrite the connection that may have already been formed
 
         try:
-            self.con = sqlite3.connect("conversation_pairs.db")
+            self.con = sqlite3.connect(self.db)
             self.cursor = self.con.cursor()
         except Exception as e:
             print(f"The connection did not work ---{e}")
@@ -45,7 +47,9 @@ class Cornell_reader():
 
                 )
         """
-        cursor.execute(sql_string)
+        self.cursor.execute(sql_string)
+        self.con.commit()
+        print("Made the table")
 
 
     def insert_into(self, listTuples:list):
@@ -55,10 +59,11 @@ class Cornell_reader():
         """
         sql_string = """
             INSERT INTO movie_line_convos (line_id, person, line)
-            VALUES(?,?,?)
+            VALUES(?,?,?);
         """
-        self.cursor.execute(sql_string, listTuples)
+        self.cursor.executemany(sql_string, listTuples)
         self.con.commit()
+        print("added convos to the table")
 
 
     def fill_table(self,):
@@ -69,17 +74,26 @@ class Cornell_reader():
         table_list = []
         # opening the file and then doing the filling of the data
         with open(self.movie_lines_path, "r", buffering=1000) as f:
-            for _ in range(count):
-                line = f.readline()
-                if not line: # checking for the end of the file
-                    self.insert_into(table_list)
-                    return
-
-                table_list.append((line[0], line[3], line[4]))
-            # after loading 1000 of the lines then we will call the method to insert the lines
-            self.insert_into(table_list)
-            # creating a new empty table_list
-            table_list = []
+            while True:
+                for _ in range(count):
+                    line = f.readline()
+                    if not line: # checking for the end of the file
+                        self.insert_into(table_list)
+                        return
+                    # splitting the line
+                    line = line.split(sep=self.sep)
+                    # cleaning the white space
+                    line_id = line[0].strip()
+                    person= line[3].strip()
+                    text = line[4].strip()
+                    
+                    # trying to make sure that we will only use those lines that are clean
+                    if predict_prob([text])[0] < .6:
+                        table_list.append((line_id, person, text))
+                # after loading 1000 of the lines then we will call the method to insert the lines
+                self.insert_into(table_list)
+                # creating a new empty table_list
+                table_list = []
 
 
 
