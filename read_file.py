@@ -3,6 +3,7 @@
 
 import json
 from  profanity_check.profanity_check import predict as profane_predict
+from profanity_check.profanity_check import predict_prob
 import sqlite3
 
 
@@ -292,7 +293,7 @@ class Table_maker():
         
         """
         if clean:
-            if profane_predict([body])[0] == 1:
+            if predict_prob([body])[0] < .6: # higer than this is considered a bad text
                 # is a bad text
                 return False
         if body == "[deleted]" or body == "[removed]":
