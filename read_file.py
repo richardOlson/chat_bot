@@ -13,16 +13,24 @@ class Table_maker():
 
         max_num_tokens: int: The maximum number of tokens that we will want to use
             if the number is -1 then no limit is placed on the number of tokens.
+            The class will look at the length of the text and if it is too large it won't
+
+        cut:    boolean:    This is only really used when max_num_tokens is not -1.  
+                This flag is used to denote if the string lenght is longer than max_num_tokens
+                then if this flag is set to True the program will cut the string to make it so that 
+                it has upto the max num of tokens.  If left as false when using max_num_tokens, then 
+                when a string is too large, the program will not add the row containing that string.
         
         """
 
-    def __init__(self, db:str, max_num_tokens:int =-1):
+    def __init__(self, db:str, max_num_tokens:int =-1, cut=False):
         
         self.cursor = self.get_connection_and_cursor(db)
         self.transaction = []
         self.max_num_tokens = max_num_tokens
         self.file_pos = 0
         self.f = None
+        self.cut = cut
 
     def get_connection_and_cursor(self, db:str):
         try:
@@ -82,8 +90,10 @@ class Table_maker():
                 row = f.readline()
 
                 # checking to see if we have reached then end
-                if len(row) == 0:
+                if not row:
+                    self.file_pos = self.f.tell()
                     break
+
                 row = json.loads(row)
                 
                 # checking to see if we need to get out of the function
@@ -137,7 +147,7 @@ class Table_maker():
                 
                 
             
-                if counter % 100 == 0:
+                if counter % 1000 == 0:
                     print(f"There have been {num_rows} rows created with pairs")   
 
             self.file_pos = self.f.tell() 
@@ -293,7 +303,7 @@ class Table_maker():
         
         """
         if clean:
-            if predict_prob([body])[0] < .6: # higer than this is considered a bad text
+            if predict_prob([body])[0] > .6: # higer than this is considered a bad text
                 # is a bad text
                 return False
         if body == "[deleted]" or body == "[removed]":
@@ -302,7 +312,14 @@ class Table_maker():
             # Means there is nothing really there
             return False
         if len(body.split()) > max_num_tokens and max_num_tokens != -1:  # -1 is no limit
-            return False
+            if self.cut:
+                split_body = body.split()
+                split_body = split_body[:max_num_tokens + 1]
+                # if user wants to return the string cut to the size of less than the 
+                # max_num_tokens then cut is true and in here will cut the string.
+                body = " ".join(split_body)
+            else:
+                return False
         body = body.replace("\n", "  ").replace("\r", "  ")
         return body
         
@@ -310,12 +327,12 @@ class Table_maker():
 
 if __name__ == "__main__":
     # getting the class
-    t = Table_maker("reddit_data.db")
+    t = Table_maker("reddit2.db")
     t.create_table()
 
     # the path to the data
-    file_path = r"C:\Users\porte\Richard_python\nlp_projects\chat_bot_data\RC_2018-05"
+    file_path = r"C:\Users\porte\Richard_python\nlp_projects\chat_bot_data\RC_2017-07"
     # now doing the reading in the data
-    t.build_table(file_path, file_buffer_size=1000, num_iter=250000, filePos=248493396)
+    t.build_table(file_path, file_buffer_size=1000, num_iter=2500000, filePos=0)
     print(f"The file position is {t.file_pos}")
   
