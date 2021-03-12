@@ -6,6 +6,7 @@ import os
 import sqlite3
 # used to make sure that the data is clean and not bad data
 from profanity_check.profanity_check import predict_prob
+import ast
 
 
 # "C:\Users\porte\Richard_python\nlp_projects\chat_bot\cornell movie-dialogs corpus"
@@ -13,15 +14,15 @@ class Cornell_reader():
 
     
     sep = "+++$+++" # the separator used in the files
-    movie_conv_path = os.path.join(os.path.dirname(__file__), "cornell movie-dialogs corpus/movie_conversation.txt")
+    movie_conv_path = os.path.join(os.path.dirname(__file__), "cornell movie-dialogs corpus/movie_conversations.txt")
     movie_lines_path = os.path.join(os.path.dirname(__file__), "cornell movie-dialogs corpus/movie_lines.txt")
-    db = os.path.join(os.path.dirname(__file__), "movie.db")
+    db = os.path.join(os.path.dirname(__file__), "movies.db")
 
     def connect(self):
         """
         method to connect the databases
         """
-        self.con = sqlite3.connect("movie.db")
+        self.con = sqlite3.connect(self.db)
         self.cursor = self.con.cursor()
         return self.cursor
 
@@ -48,7 +49,7 @@ class Cornell_reader():
                 )
         """
         self.cursor.execute(sql_string)
-        self.con.commit()
+        
         print("Made the table")
 
 
@@ -99,21 +100,26 @@ class Cornell_reader():
 
     def read_cornell(self,):
         """
-        This is the function that is used to read in the data to make 
-        further make the database of the conversation pairs of the 
-        movie data
+        This is the function that will make the pairs of the cornell data movie lines
         """
-        f = open(self.movie_lines_path, "r",)
+        
 
         with open(self.movie_conv_path, "r")as convs:
             conv_line = convs.readline()
             # going through the conversations
             lineList = conv_line.split(sep=self.sep)
+            # getting the list of the lines from the string
+            lineList = lineList[3]
+            lineList = lineList.replace("\n", "")
+            lineList = lineList.strip()
+            lineList = ast.literal_eval(lineList)
+            breakpoint()
+            print("made it")
 
 
 
 if __name__ == "__main__":
     
     corn = Cornell_reader()
-    corn.create_table()
-    corn.fill_table()
+    corn.connect()
+    corn.read_cornell()
