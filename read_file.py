@@ -26,7 +26,10 @@ class Table_maker():
     def __init__(self, db:str, max_num_tokens:int =-1, cut=False):
         
         self.cursor = self.get_connection_and_cursor(db)
-        self.transaction = []
+        # The two transaction are used to make putting in the parents as 
+        # insert many and then the children repsonces are put in
+        self.parent_transaction = []
+        self.child_trasaction = []
         self.max_num_tokens = max_num_tokens
         self.file_pos = 0
         self.f = None
@@ -59,7 +62,7 @@ class Table_maker():
         )
 
     def build_table(self, file_path:str, file_buffer_size:int, clean=True, 
-                    num_iter=-1, num_rows_inserted:int= -1, filePos=0):
+                    num_iter=-1, num_rows_inserted:int= -1, filePos=0, insert_mult=True):
         """
         This is the function that will build the table by running through the data and doing the things 
         that is needed to the data to get it ready to be entered into the database table.
@@ -70,6 +73,9 @@ class Table_maker():
 
         num_rows_inserted:  integer This is the number of rows that will be inserted into the 
         table.  If this parameter is used then the "num_iter" should be left at default of -1.
+
+        insert_mult:    A boolean flag that when set to True will mean that the insert transaction
+                is done in groups of multiples of 1000
 
         This function will insert a row if the comment has an acceptable score and also if th
         """
@@ -148,7 +154,8 @@ class Table_maker():
                 
             
                 if counter % 1000 == 0:
-                    print(f"There have been {num_rows} rows created with pairs")   
+                    print(f"There have been {num_rows} rows created with pairs") 
+                    print(f"The number of iterations is now at {counter}")  
 
             self.file_pos = self.f.tell() 
         
@@ -169,7 +176,48 @@ class Table_maker():
             return id[0]       
                 
                 
-                
+
+    def insert_many_rows(self, thelistofTuples:list):
+        """
+        This is the function that will insert multiple rows into the table at one time 
+        with the execute_many function of sqlite3
+
+        thelisofTuples:     This is the list of the rows that will be entered in together it is in the form
+                            of a list of tuples where each tuple is a row that is entered into the table.
+        """
+        sql_string = """
+                INSERT INTO convos (parent_id, comment_id, child_responce, parent_comment, score)
+                VALUES(?,?,?,?,?)
+        """
+        try:
+            self.cursor.executemany(sql_string, thelistofTuples)
+            self.connection.commit()
+        except Exception as e:
+            print("Inserting many did not work, -- ", e)
+
+    
+    def update_many_rows(self, thelisofTuples:list):
+        """
+        This is the function that will update many of the rows in the table with the 
+        list of tuples that is passed in to the function.
+        
+        theListofTuples:    This is the list of the rows that are being passed in to be updated
+        """
+        sql = """
+            UPDATE convos
+            SET parent_id = ?,
+                comment_id = ?,
+                score = ?,
+                child_responce = ?, 
+                parent_comment = ?
+                WHERE comment_id = ?
+        """
+        try:
+            self.cursor.executemany(sql, thelisofTuples)
+            self.connection.commit()
+        except Exception as e:
+            print("The updating of multiple rows did not work ---> ",e )
+
                 
     def insert_row(self, the_row:tuple):
         """
@@ -308,31 +356,39 @@ class Table_maker():
                 return False
         if body == "[deleted]" or body == "[removed]":
             return False
-        if len(body) < 1:
+        if len(body) < 2: # want it to have more than just one letter
             # Means there is nothing really there
             return False
-        if len(body.split()) > max_num_tokens and max_num_tokens != -1:  # -1 is no limit
+        bodyList = body.split()
+
+        # making all the text into lower case
+        bodyList = [word.lower() for word in bodyList]
+        
+        if len(bodyList) > max_num_tokens and max_num_tokens != -1:  # -1 is no limit
             if self.cut:
-                split_body = body.split()
-                split_body = split_body[:max_num_tokens + 1]
+                
+                bodyList = bodyList[:max_num_tokens + 1]
                 # if user wants to return the string cut to the size of less than the 
                 # max_num_tokens then cut is true and in here will cut the string.
-                body = " ".join(split_body)
+        
             else:
                 return False
+        # creating the one sentance again
+        body = " ".join(bodyList)
         body = body.replace("\n", "  ").replace("\r", "  ")
+        body = body.strip()
         return body
         
             
 
 if __name__ == "__main__":
     # getting the class
-    t = Table_maker("reddit2.db")
+    t = Table_maker("reddit3.db")
     t.create_table()
 
     # the path to the data
     file_path = r"C:\Users\porte\Richard_python\nlp_projects\chat_bot_data\RC_2017-07"
     # now doing the reading in the data
-    t.build_table(file_path, file_buffer_size=1000, num_iter=2500000, filePos=0)
+    t.build_table(file_path, file_buffer_size=1000, num_iter=1000000, filePos=469763459)
     print(f"The file position is {t.file_pos}")
   
