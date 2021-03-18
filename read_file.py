@@ -5,6 +5,7 @@ import json
 from  profanity_check.profanity_check import predict as profane_predict
 from profanity_check.profanity_check import predict_prob
 import sqlite3
+from cleaner import text_cleaner
 
 
 class Table_maker():
@@ -26,10 +27,10 @@ class Table_maker():
     def __init__(self, db:str, max_num_tokens:int =-1, cut=False):
         
         self.cursor = self.get_connection_and_cursor(db)
-        # The two transaction are used to make putting in the parents as 
-        # insert many and then the children repsonces are put in
+        # The 2 transaction are used to make putting in the parents 
+        # update will update the rows already found in the  many and then the children repsonces are put in
         self.parent_transaction = []
-        self.child_trasaction = []
+        self.child_transaction = []
         self.max_num_tokens = max_num_tokens
         self.file_pos = 0
         self.f = None
@@ -60,6 +61,96 @@ class Table_maker():
             )
             """
         )
+
+    def build_table_improved(self, file_path:str, file_buffer_size:int, clean=True, 
+                    num_iter=-1, num_rows_inserted:int= -1, filePos=0, insert_mult=True):
+
+        """
+        This is the same funcion as the build_table but is changed to how it will go about 
+        building the table.
+        It will put all the parents in in a execute many function.  In an effort to speed up 
+        building the table.
+
+
+        num_iter: integer This is how many iteration or row from the file you want to read.
+        if the number is -1, then it will read all of the file.  If this parameter is used then 
+        the "num_rows_inserted" should be left as the default of -1.
+
+        num_rows_inserted:  integer This is the number of rows that will be inserted into the 
+        table.  If this parameter is used then the "num_iter" should be left at default of -1.
+
+        insert_mult:    A boolean flag that when set to True will mean that the insert transaction
+                is done in groups of multiples of 1000
+
+
+        """
+        # counter is a variable to count the number of iterations 
+        counter = 0
+        # num_rows is a variable to count the number of comment--responce rows are formed
+        num_rows = 0
+        # This is the global variable for the body of the text
+        body = None
+        iterVal = True
+
+        with open(file_path, "r", buffering=file_buffer_size) as f:
+            self.f = f
+            # setting it to be able to go to a certain position when starting
+            f.seek(filePos)
+            while iterVal:
+
+                row = f.readline()
+
+                # checking to see if we have reached then end
+                if not row:
+                    self.file_pos = self.f.tell()
+                    break
+
+                row = json.loads(row)
+                
+                # checking to see if we need to get out of the function
+                if counter >= num_iter and num_iter != -1:
+                    break
+                # to get out with the specified number of rows
+                if num_rows >= num_rows_inserted and num_rows_inserted != -1:
+                    break
+
+                counter += 1 
+
+                if counter % 1500 == 0:
+                    print(f"There have been {num_rows} rows created with pairs") 
+                    print(f"The number of iterations is now at {counter}") 
+                    # will now do the parent transactions here
+                    self.insert_many_rows(self.parent_transaction)
+                    # will then do the other rows
+                    self.fill_all_rows(self.child_transaction)
+
+                    
+
+
+                if "body" in row:
+                    # get the row and build the transaction list to do the adding to the database
+                    body = self.get_data(row["body"], max_num_tokens=self.max_num_tokens, clean=clean)
+                    # checking to the see if this is a parent comment
+                    # checking to see if the link_id is matching the parent_id
+                    if row["link_id"] == row["parent_id"] and body != False:
+                    # in here means that the link and the parent id are the same so it is a top
+                    # level comment.
+                        # making it to inert many 
+                        self.parent_transaction.append((row["parent_id"], row["id"], row["body"], "None", row["score"]))
+                        continue
+                
+                # need to have a comment that at least has a score of 2 and is a clean text
+                if row["score"] >= 2 and body !=False:
+                    parent_id = row["parent_id"]
+                    comment_id = row["id"]
+                    score = row["score"]
+                
+                # will now put this row in the child_transaction list which then is used after
+                # the parents are already put into the database
+                # items in the list are in the order of: parent_id, comment_id, body, parent_comment, score
+                self.child_transaction.append(((parent_id, comment_id, body, None, score)))
+
+
 
     def build_table(self, file_path:str, file_buffer_size:int, clean=True, 
                     num_iter=-1, num_rows_inserted:int= -1, filePos=0, insert_mult=True):
@@ -111,6 +202,12 @@ class Table_maker():
 
                 counter += 1 
 
+                if counter % 1000 == 0:
+                    print(f"There have been {num_rows} rows created with pairs") 
+                    print(f"The number of iterations is now at {counter}") 
+                    # will now do the parent transactions here
+                    # will then do the other 
+
 
                 if "body" in row:
                     # get the row and build the transaction list to do the adding to the database
@@ -123,6 +220,7 @@ class Table_maker():
                         self.insert_row((row["parent_id"], row["id"], row["body"], "None", row["score"]))
                         
                         continue
+
                 # need to have a comment that at least has a score of 2 and is a clean text
                 if row["score"] >= 2 and body !=False:
                     parent_id = row["parent_id"]
@@ -153,14 +251,18 @@ class Table_maker():
                 
                 
             
-                if counter % 1000 == 0:
-                    print(f"There have been {num_rows} rows created with pairs") 
-                    print(f"The number of iterations is now at {counter}")  
-
+                
             self.file_pos = self.f.tell() 
         
                 
-               
+    def parent_comment(self)            
+
+    def fill_all_rows(self, listOfTuples:list):
+        """
+        This is the function that will go through a bunch of rows 
+        and will then either insert them or use them to update
+        """
+
             
     def not_Full_name(self, id:str):
         """
@@ -359,25 +461,22 @@ class Table_maker():
         if len(body) < 2: # want it to have more than just one letter
             # Means there is nothing really there
             return False
-        bodyList = body.split()
-
-        # making all the text into lower case
-        bodyList = [word.lower() for word in bodyList]
         
-        if len(bodyList) > max_num_tokens and max_num_tokens != -1:  # -1 is no limit
+        if len(body.split()) > max_num_tokens and max_num_tokens != -1:  # -1 is no limit
             if self.cut:
-                
+                bodyList = body.split()
                 bodyList = bodyList[:max_num_tokens + 1]
                 # if user wants to return the string cut to the size of less than the 
                 # max_num_tokens then cut is true and in here will cut the string.
         
             else:
                 return False
-        # creating the one sentance again
-        body = " ".join(bodyList)
-        body = body.replace("\n", "  ").replace("\r", "  ")
-        body = body.strip()
+        # now doing the cleaning of the text to remove emoji and other things not wanted in the text
+        body = text_cleaner(body)
+        if len(body) < 1:
+            return False
         return body
+        
         
             
 
