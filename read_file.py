@@ -27,7 +27,7 @@ class Table_maker():
     def __init__(self, db:str, max_num_tokens:int =-1, cut=False):
         
         self.cursor = self.get_connection_and_cursor(db)
-        # The 2 transaction are used to make putting in the parents 
+        # The 3 transaction are used to make putting in the parents 
         # update will update the rows already found in the  many and then the children repsonces are put in
         self.parent_transaction = []
         self.child_transaction = []
@@ -63,7 +63,7 @@ class Table_maker():
         )
 
     def build_table_improved(self, file_path:str, file_buffer_size:int, clean=True, 
-                    num_iter=-1, num_rows_inserted:int= -1, filePos=0, insert_mult=True):
+                    num_iter=-1, num_rows_inserted:int= -1, filePos=0, insert_mult=False):
 
         """
         This is the same funcion as the build_table but is changed to how it will go about 
@@ -80,7 +80,7 @@ class Table_maker():
         table.  If this parameter is used then the "num_iter" should be left at default of -1.
 
         insert_mult:    A boolean flag that when set to True will mean that the insert transaction
-                is done in groups of multiples of 1000
+                is done for the child updating
 
 
         """
@@ -117,12 +117,15 @@ class Table_maker():
                 counter += 1 
 
                 if counter % 1500 == 0:
-                    print(f"There have been {num_rows} rows created with pairs") 
-                    print(f"The number of iterations is now at {counter}") 
                     # will now do the parent transactions here
                     self.insert_many_rows(self.parent_transaction)
+                    # run through the child transactions
+
                     # will then do the other rows
-                    self.fill_all_rows(self.child_transaction)
+                    self.run_though_children(self.child_transaction)
+
+                    print(f"There have been {num_rows} rows created with pairs") 
+                    print(f"The number of iterations is now at {counter}") 
 
                     
 
@@ -145,10 +148,14 @@ class Table_maker():
                     comment_id = row["id"]
                     score = row["score"]
                 
-                # will now put this row in the child_transaction list which then is used after
-                # the parents are already put into the database
-                # items in the list are in the order of: parent_id, comment_id, body, parent_comment, score
-                self.child_transaction.append(((parent_id, comment_id, body, None, score)))
+                    # putting the rest into a child_transaction
+                    self.child_transaction.append((parent_id, comment_id, body,  score))
+                else:
+                    continue
+            
+            # setting the file position
+            self.file_pos = f.tell()
+                
 
 
 
@@ -230,10 +237,10 @@ class Table_maker():
 
                     parent_comment = self.find_parent_comment(self.not_Full_name(parent_id))
                     if parent_comment != "False":
-                        # has a parent comment
+                        # has a parent comment --- this means there is a match for this comment
                         value = self.find_comment_score(score, parent_id)
                         if value:
-                            # Will be either a 1 or True
+                            # Will be either a 1 or True True meaning that has a comment id
                             if value != 1:
                                 # need to replace the body text for the on that is in there
                                 self.update_prev_row((parent_id, comment_id, score, body, parent_comment, value))
@@ -241,9 +248,9 @@ class Table_maker():
                             else:
                                 # no row with a parent id the same so will put this row in 
                                 self.insert_row((parent_id, comment_id, body, parent_comment, score))
-                                
-                                if parent_comment != "False":
-                                    num_rows += 1
+                                        
+                            if parent_comment != "False":
+                                num_rows += 1
                 
                 else:
                     
@@ -255,15 +262,43 @@ class Table_maker():
             self.file_pos = self.f.tell() 
         
                 
-    def parent_comment(self)            
+             
 
-    def fill_all_rows(self, listOfTuples:list):
+    def run_though_children(self, listOfTuples:list, ):
         """
-        This is the function that will go through a bunch of rows 
-        and will then either insert them or use them to update
+        This is the function that will go through a bunch of rows
+        from the "self.child_transaction" and will go through the
+        list of the children and will put add them if needed to update
+        or to insert a new row in the database.
         """
+        for parent_id, comment_id, body,  score in listOfTuples:
 
+            # Will check if the row has a parent comment in the database already if it does then
+            # will put in parent_child_transaction list
+            # If not then will be just added to the child_transaction list
+            parent_comment = self.find_parent_comment(the_parent_id=parent_id)
             
+            if parent_comment:
+                # getting the value to see if this one has a better score than possible a row 
+                # that is already in the database
+                value = self.find_comment_score(the_score=score, pid=parent_id)
+
+                if value:
+                    # this means that the value is either 1 -- there is not a pairing already with the parent in 
+                    # in the database.
+                    # the parent comment is retruned if the current comment as a higher
+                    # score than the child paired with the parent.
+                    if value != 1:
+                        self.update_prev_row((parent_id, comment_id, score, body, parent_comment, value)) 
+                    else:
+                        # in here we are inserting a new row because there has been no previous pairing 
+                        # with the parent comment
+                        self.insert_row((parent_id, comment_id, body, parent_comment, score))
+                                                        
+                
+            
+            
+        
     def not_Full_name(self, id:str):
         """
         This is the function remove the prefix portion of the 
@@ -354,7 +389,7 @@ class Table_maker():
         """
         This is the function that will find the parent comment when passed in a parent
         id.  This function will return text of the parent comment if it is found.  
-        If it is not found then it will return False
+        If it is not found then it will return FALSE
         """
         # making of the sql string to find in the table
         sql_str = f"SELECT child_responce FROM convos WHERE comment_id =  '{the_parent_id}' LIMIT 1; "
@@ -393,8 +428,8 @@ class Table_maker():
         it exists.  This is to allow us to modify some of the data
         with the new data, that has a greater score.
 
-        :returns:   False -- the score is less than the row score already in the database
-                    1 -- Cannot find any row in the database that has been added already
+        :returns:   False -- the score is less than the row score already in the database.  
+                   "1"  is returned if -- Cannot find any row in the database that has been added already
                     comment_id -- the comment_id of the row in the database
         """
         
