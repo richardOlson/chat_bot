@@ -1,10 +1,9 @@
 # This is the file where we just try things to see how they work
 
-import spacy
 
 
-# Trying to use spacy to do the work
-nlp = spacy.load("en_core_web_md")
+
+
 
 # The following is the list of items that we would like to remove from the text
 remove = {
@@ -13,14 +12,15 @@ remove = {
     "[":"[",
     "]":"]", 
     "\r":"\r",
-    "\n":"\n"
+    "\n":"\n", 
+    
     
 
 
 
 }
 "&gt; a subreddit which focuses on Palestine, its people and culture    False. Israel hate is the sub's main focus. Just as the PLO was created in Cairo to destroy Israel, r/Palestine exists for circle-jerking about Israeli policy."
-remove_list = [ "r/", "u/", ]
+remove_list = [ "r/", "u/", "*" ]
 
 def remove_char(string:str ):
     if string in remove:

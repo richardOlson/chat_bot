@@ -6,6 +6,8 @@ from  profanity_check.profanity_check import predict as profane_predict
 from profanity_check.profanity_check import predict_prob
 import sqlite3
 from cleaner import text_cleaner
+import os
+import time
 
 
 class Table_maker():
@@ -35,8 +37,10 @@ class Table_maker():
         self.file_pos = 0
         self.f = None
         self.cut = cut
+        self.num_rows = 0
 
     def get_connection_and_cursor(self, db:str):
+        
         try:
             # getting the database that is the sqlite3
             self.connection =sqlite3.connect(db)
@@ -44,7 +48,7 @@ class Table_maker():
             cursor = self.connection.cursor()
             return cursor
         except Exception as e:
-            print("Unable to make the database connection--", e)
+            print("get_connection_and_cursor function error --", e)
 
 
     # the function to create the table that will hold the info of the speech.
@@ -62,8 +66,8 @@ class Table_maker():
             """
         )
 
-    def build_table_improved(self, file_path:str, file_buffer_size:int, clean=True, 
-                    num_iter=-1, num_rows_inserted:int= -1, filePos=0, insert_mult=False):
+    def build_table_transaction(self, file_path:str, file_buffer_size:int, clean=True, 
+                    num_iter=-1, num_rows_inserted:int= -1, filePos=0, trans_size=1000):
 
         """
         This is the same funcion as the build_table but is changed to how it will go about 
@@ -78,10 +82,6 @@ class Table_maker():
 
         num_rows_inserted:  integer This is the number of rows that will be inserted into the 
         table.  If this parameter is used then the "num_iter" should be left at default of -1.
-
-        insert_mult:    A boolean flag that when set to True will mean that the insert transaction
-                is done for the child updating
-
 
         """
         # counter is a variable to count the number of iterations 
@@ -116,7 +116,7 @@ class Table_maker():
 
                 counter += 1 
 
-                if counter % 1500 == 0:
+                if counter % trans_size == 0:
                     # will now do the parent transactions here
                     self.insert_many_rows(self.parent_transaction)
                     # run through the child transactions
@@ -124,7 +124,7 @@ class Table_maker():
                     # will then do the other rows
                     self.run_though_children(self.child_transaction)
 
-                    print(f"There have been {num_rows} rows created with pairs") 
+                    print(f"There have been {self.num_rows} rows created with pairs") 
                     print(f"The number of iterations is now at {counter}") 
 
                     
@@ -139,7 +139,7 @@ class Table_maker():
                     # in here means that the link and the parent id are the same so it is a top
                     # level comment.
                         # making it to inert many 
-                        self.parent_transaction.append((row["parent_id"], row["id"], row["body"], "None", row["score"]))
+                        self.parent_transaction.append((row["parent_id"], row["id"], body, "None", row["score"]))
                         continue
                 
                 # need to have a comment that at least has a score of 2 and is a clean text
@@ -152,7 +152,18 @@ class Table_maker():
                     self.child_transaction.append((parent_id, comment_id, body,  score))
                 else:
                     continue
-            
+
+            # The following is when we are out of the loop where we would read the file
+            # doing the transactions if there are any left that haven't been done
+            self.insert_many_rows(self.parent_transaction)
+            # run through the child transactions
+
+            # will then do the other rows
+            self.run_though_children(self.child_transaction)
+
+            print(f"There have been {self.num_rows} rows created with pairs") 
+            print(f"The number of iterations is now at {counter}") 
+
             # setting the file position
             self.file_pos = f.tell()
                 
@@ -160,7 +171,7 @@ class Table_maker():
 
 
     def build_table(self, file_path:str, file_buffer_size:int, clean=True, 
-                    num_iter=-1, num_rows_inserted:int= -1, filePos=0, insert_mult=True):
+                    num_iter=-1, num_rows_inserted:int= -1, filePos=0):
         """
         This is the function that will build the table by running through the data and doing the things 
         that is needed to the data to get it ready to be entered into the database table.
@@ -172,8 +183,7 @@ class Table_maker():
         num_rows_inserted:  integer This is the number of rows that will be inserted into the 
         table.  If this parameter is used then the "num_iter" should be left at default of -1.
 
-        insert_mult:    A boolean flag that when set to True will mean that the insert transaction
-                is done in groups of multiples of 1000
+        
 
         This function will insert a row if the comment has an acceptable score and also if th
         """
@@ -276,9 +286,9 @@ class Table_maker():
             # Will check if the row has a parent comment in the database already if it does then
             # will put in parent_child_transaction list
             # If not then will be just added to the child_transaction list
-            parent_comment = self.find_parent_comment(the_parent_id=parent_id)
+            parent_comment = self.find_parent_comment(the_parent_id=self.not_Full_name(parent_id))
             
-            if parent_comment:
+            if parent_comment != "False":
                 # getting the value to see if this one has a better score than possible a row 
                 # that is already in the database
                 value = self.find_comment_score(the_score=score, pid=parent_id)
@@ -294,6 +304,11 @@ class Table_maker():
                         # in here we are inserting a new row because there has been no previous pairing 
                         # with the parent comment
                         self.insert_row((parent_id, comment_id, body, parent_comment, score))
+                    if parent_comment != "False":
+                        self.num_rows += 1
+        # will now do the 
+        # emptying of the child transaction
+        self.child_transaction = []
                                                         
                 
             
@@ -329,6 +344,8 @@ class Table_maker():
         try:
             self.cursor.executemany(sql_string, thelistofTuples)
             self.connection.commit()
+            # making the list empty again
+            self.parent_transaction = []
         except Exception as e:
             print("Inserting many did not work, -- ", e)
 
@@ -516,13 +533,17 @@ class Table_maker():
             
 
 if __name__ == "__main__":
+
+    path_for_reddit = os.path.join(os.path.dirname(__file__), "..",  "chat_bot_data/reddit4.db")
     # getting the class
-    t = Table_maker("reddit3.db")
+    t = Table_maker(path_for_reddit)
     t.create_table()
 
     # the path to the data
     file_path = r"C:\Users\porte\Richard_python\nlp_projects\chat_bot_data\RC_2017-07"
     # now doing the reading in the data
-    t.build_table(file_path, file_buffer_size=1000, num_iter=1000000, filePos=469763459)
+    start = time.time()
+    t.build_table_transaction(file_path, file_buffer_size=1000, num_iter=35000, filePos=0, trans_size=1500)
+    end = time.time()
     print(f"The file position is {t.file_pos}")
-  
+    print(f"The program took {end - start} seconds")
