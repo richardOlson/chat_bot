@@ -528,22 +528,52 @@ class Table_maker():
         if len(body) < 1:
             return False
         return body
+
+    
+    # The functions below are used to make the two files 
+    # The first file called "parent" will contain the parent comments.
+    # The second file called "child" will contain the child reponse.
+    def makeFiles(self):
+        """
+        This function will get the connection of the database and then
+        will go through the database and will make a file.
+        """
+        
+        child_path = os.path.join(os.path.dirname(__file__), "..", "chat_bot_data/child")
+        # will be looping through the cursor object
+        self.cursor.execute("SELECT * from convos")
+        theCounter  = 0
+        for r in self.cursor:
+            
+            # print(f"This is is the parent comment:  {r[4]}")
+            # print(f"This is the child comment:  {r[3]}")
+
+            # iterating through the cursor
+
+
+            theCounter += 1
+
+            
+
         
         
             
 
 if __name__ == "__main__":
 
-    path_for_reddit = os.path.join(os.path.dirname(__file__), "..",  "chat_bot_data/reddit4.db")
-    # getting the class
-    t = Table_maker(path_for_reddit)
-    t.create_table()
+    # path_for_reddit = os.path.join(os.path.dirname(__file__), "..",  "chat_bot_data/reddit4.db")
+    # # getting the class
+    # t = Table_maker(path_for_reddit)
+    # t.create_table()
 
-    # the path to the data
-    file_path = r"C:\Users\porte\Richard_python\nlp_projects\chat_bot_data\RC_2017-07"
-    # now doing the reading in the data
-    start = time.time()
-    t.build_table_transaction(file_path, file_buffer_size=1000, num_iter=35000, filePos=0, trans_size=1500)
-    end = time.time()
-    print(f"The file position is {t.file_pos}")
-    print(f"The program took {end - start} seconds")
+    # # the path to the data
+    # file_path = r"C:\Users\porte\Richard_python\nlp_projects\chat_bot_data\RC_2018-05"
+    # # now doing the reading in the data
+    # start = time.time()
+    # t.build_table_transaction(file_path, file_buffer_size=1000, num_iter=1000000, filePos=832709471, trans_size=5000)
+    # end = time.time()
+    # print(f"The file position is {t.file_pos}")
+    # print(f"The program took {end - start} seconds")
+    path = os.path.join(os.path.dirname(__file__), "..", "chat_bot_data/reddit4.db")
+    t = Table_maker(db=path)
+    t.makeFiles()

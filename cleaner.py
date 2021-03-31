@@ -20,7 +20,6 @@ remove = {
 
 }
 "&gt; a subreddit which focuses on Palestine, its people and culture    False. Israel hate is the sub's main focus. Just as the PLO was created in Cairo to destroy Israel, r/Palestine exists for circle-jerking about Israeli policy."
-remove_list = [ "r/", "u/", "*" ]
 
 def remove_char(string:str ):
     if string in remove:
@@ -51,7 +50,7 @@ def text_cleaner(string):
     This function will take in a string and then will remove things such as the brackets
     or emojis.
     """
-    remove_list = [ "r/", "u/", ]
+    remove_list = [ "r/", "u/", "*"]
     # This is the flag that when true means that need to cut out the https region
     cut_flag = False
     # These are the cut points to cut the string this is to remove the https region
@@ -74,10 +73,14 @@ def text_cleaner(string):
                         break
                     continue
             else:
-                if string[i:i+4] == "&gt;":
-                    remove_list += ["&gt;"]
-                elif string[i:i+4] == "&lt;":
-                    remove_list += ["&lt;"]
+                try:
+                    if string[i:i+4] == "&gt;":
+                        remove_list += ["&gt;"]
+                    elif string[i:i+4] == "&lt;":
+                        remove_list += ["&lt;"]
+                except Exception as e:
+                    pass
+                    # won't do anything if the & is causes an exception
             
                
         elif not string[i].isascii() or remove_char(string[i]):
