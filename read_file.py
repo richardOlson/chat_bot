@@ -544,7 +544,7 @@ class Table_maker():
         self.cursor.execute("SELECT * from convos")
         theCounter  = 0
         for r in self.cursor:
-            
+            pass
             # print(f"This is is the parent comment:  {r[4]}")
             # print(f"This is the child comment:  {r[3]}")
 
@@ -552,6 +552,9 @@ class Table_maker():
 
 
             theCounter += 1
+
+    
+    
 
             
 
