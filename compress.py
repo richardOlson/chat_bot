@@ -16,9 +16,9 @@ path_to_extract_to = os.path.join(os.path.dirname(__file__), "..", "chat_bot_dat
 
 def compress_file(file_to_compress_path:str, compress_to_path:str, compression_style: int):
 
-    with ZipFile(save_to_path, mode="w", compression=compression_style) as zip:
-        string = file_to_compress_path.split("/")[-1]
-        zip.write(file_to_compress_path, arcname=string)
+    with ZipFile(compress_to_path, mode="w", compression=compression_style) as zip:
+        # string = file_to_compress_path.split("/")[-1]
+        zip.write(file_to_compress_path)
 
 
 
@@ -26,8 +26,14 @@ def compress_file(file_to_compress_path:str, compress_to_path:str, compression_s
 def uncompress_file(extract_to: str = None, unZip_from: str = None, compression_style:int = ZIP_STORED):
     thePath = Path(extract_to)
     
+    
     with ZipFile(unZip_from, mode="r", compression=compression_style) as zip:
-        zip.extractall("lmza")
+        # making so that the member is just the last part just being the 
+        # name of the file.
+        mem = zip.namelist()
+        mem = mem[0].split("/")[-1]
+        
+        zip.extractall(path=extract_to)
 
 
 
@@ -66,13 +72,18 @@ def make_comment_file(theSql, comment_file, index):
 
     
 # function that will be used to read the file
-def read_file(thefile):
+def read_file(thefile, num_lines=-1):
     with open(thefile, "rb") as f:
+        counter = 0
         line = f.readline()
         while(line):
+            if counter == num_lines:
+                break
+            
             line = line.decode()
             print(f"This the is line of the file ---> {line}")
             line = f.readline()
+            counter += 1
             
             
 
@@ -81,17 +92,40 @@ def read_file(thefile):
 
 
 if __name__ == "__main__":
-    # trying the compression first
-    # compress_file(file_to_compress_path=data_path, compress_to_path=save_to_path, compression_style=ZIP_LZMA)
+
+
+    # # files that we will compress
+    file_to_compress = os.path.join(os.path.dirname(__file__), "..", "chat_bot_data/parent")
+    save_compressed_file_path = os.path.join(os.path.dirname(__file__), "..", "chat_bot_data/parent_zipped.zip")
+
+    # path to extract to 
+    path_to_extract_to = os.path.join(os.path.dirname(__file__), "..", "chat_bot_data")
+
+
+    # # trying the compression first
+    compress_file(file_to_compress_path=file_to_compress, compress_to_path=save_compressed_file_path, 
+                     compression_style=ZIP_LZMA)
+
+    print(f"Done with the compression of the file")
 
     # # doing the extraction
-    # uncompress_file(extract_to=path_to_extract_to, unZip_from=save_to_path, compression_style=ZIP_LZMA)
+    # uncompress_file(extract_to=path_to_extract_to, unZip_from=save_compressed_file_path, compression_style=ZIP_LZMA)
     # print("Have finished the uncompression")
+    # with ZipFile(save_compressed_file_path) as f:
+    #     f.namelist()
+    #     breakpoint( )
+    #     print("The file is now here")
+    #     if f:
+    #         print("hey")
 
-    # print(f"This is the path {path_to_extract_to}")
-    sql_file = os.path.join(os.path.dirname(__file__), "..", "chat_bot_data/reddit4.db")
-    file_to_save = os.path.join(os.path.dirname(__file__), "..", "chat_bot_data/parent")
 
-    make_comment_file(theSql=sql_file, comment_file=file_to_save, index=4)
+    # This is the code to write something to a file of just the parent or the child
+    # sql_file = os.path.join(os.path.dirname(__file__), "..", "chat_bot_data/reddit4.db")
+    # file_to_save = os.path.join(os.path.dirname(__file__), "..", "chat_bot_data/child")
 
-    # read_file(file_to_save)
+    # make_comment_file(theSql=sql_file, comment_file=file_to_save, index=3)
+
+    # print("Done reading the file and making it")
+
+    # # doing the reading of few lines of the code
+    # read_file(file_to_save, num_lines=5)
