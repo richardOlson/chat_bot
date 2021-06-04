@@ -3,6 +3,7 @@
 import pandas as pd
 import os
 from pathlib import Path
+import re
 
 
 # printing out the working directory 
@@ -83,9 +84,12 @@ def prep_inputs_internal(persona, history, reply, speakers = None):
   # the flag
   
   # making the history a list of list
-  history = [[h] for h in history]
+  history = [h.split() for h in history]
+
+  # making the reply split with the punctuation
+  reply = reply.split()
   
-  sequence = [[bos] + list(chain(*persona))] + history + [[reply] + [eos]]
+  sequence = [[bos] + list(chain(*persona))] + history + [reply + [eos]]
   
   # adding who is talking at each of the points
   yoda, speaker2, pad = "<yoda>", "<other_speakers>", "<pad>"
@@ -110,10 +114,17 @@ def prep_inputs_internal(persona, history, reply, speakers = None):
             continue
     theInt += 1
     position.append(theInt)
-  breakpoint()
+  
   # making the list of speaker tokens
+  # theList = [yoda for _ in sequence[0]]
+
+  # for i, s, in enumerate(sequence[1:]):
+  #   for _ in s:
+  #     theSpeaker = get_speakers(speakers, i)
+  #     theList.append(theSpeaker)
   speaker = [yoda for _ in sequence[0]] + [get_speakers(speakers, i) for i, s in enumerate(sequence[1:]) for _ in s]
   # not using the below portion
+  
   # speaker = [speaker2 if i % 2 else yoda for i, s in enumerate(sequence) for _ in s]
   return sequence, words, position, speaker
 
@@ -133,12 +144,14 @@ def prepare_inputs(persona: list, history= None, reply= None, dataframe=None):
     sequence, words, position, speakers = None, None, None, None
     file_pointers = ["./sequence", "./words", "./position", "./speaker"]
 
-    v = [sequence, words, position, speakers]
+    
     
     for row in dataframe.iterrows():
       # making the history, speakers, words, and the reply
       speakers = row[1].tolist()[:7]
+
       history = row[1].tolist()[8:-1]
+      
       speaker_reply = row[1].tolist()[7:8]
       reply = row[1].tolist()[-1]
 
@@ -146,7 +159,10 @@ def prepare_inputs(persona: list, history= None, reply= None, dataframe=None):
       speakers = speakers + speaker_reply
       # prep_inputs_internal(persona, history, reply):
       sequence, words, position, speakers = prep_inputs_internal(persona, history, reply, speakers)
+
+      v = [sequence, words, position, speakers]
       # looping through the file pointers
+      breakpoint()
       for i, pointer in enumerate(file_pointers):
         # calling the function prepare_intputs_internal
         file_pointer = open(pointer,  mode="ab",  ) 
@@ -222,6 +238,57 @@ def make_new_df(df, reply_at_end= True):
     return new_df
 
 
+# making a function that will get some of the speech of yoda that is found in the 
+# narrator text
+def markfixingYodaSpeech(df):
+  """
+  This function will return a list of the indexes that need to be looked at to decide
+  what is to be done to fix the text.  Some times the text of Yoda is in the narrators text.
+  
+  """
+  #df = df.copy()
+  theList = []
+
+  for index, row in df.iterrows():
+    if row["character"] == "YODA" and index != 0:
+      # checking the row above to see if it doesn't end 
+      yoda_text = str(row["text"])
+      if not yoda_text.endswith(".") and not yoda_text.endswith("?") and not yoda_text.endswith("!"):
+        # if it does not end with a period it is possible that 
+        # some of Yodas text in in the person (character) that is speaking next.
+        theList.append(index)
+
+  return theList
+
+
+def fixString(s: str):
+  """
+  This function will return the string
+  """
+  # this is to remove all the parenthesis and what is in them 
+  theList = re.findall(r"\(.*?\)", s, )
+  if theList:
+    for l in theList:
+      s = s.replace(l, "")
+  # will now remove the ... and replace it with a comma
+  s = s.replace("...", " ,")
+
+  # putting spaces between the punctuation
+  theList = re.findall(r"(\.?\??\,?\!?)", s)
+  if theList:
+    for l in theList:
+      if l:
+        for theChar in l:
+          s = s.replace(theChar, " " + theChar + " ")
+  # will now remove places where there are extra spaces
+  s = s.replace("  ", " ")
+  # will now make everything in lowercase
+  s = s.lower()
+  
+  return s
+  
+
+
 
 if __name__ == "__main__":
 
@@ -243,8 +310,35 @@ if __name__ == "__main__":
 
     # getting the yoda dataframe
     df = get_yoda_corpus()
+    n_df = df.copy()
+
+
+    # fixing the speech of the Yoda
+    fixList = markfixingYodaSpeech(n_df)
+
+    # fixing the list that is given
+    # This is the fixing of the Yoda speech
+    n_df.at[343, "text"] = "Strong am I with the Force... but not that strong! Twilight is upon me and soon night must fall." 
+    n_df.at[367, "text"] = "Remember, a Jedi's strength flows from the Force.  But beware.  Anger, fear, aggression. The dark side are they.  Once you start down the dark path, forever will it dominate your destiny."
+    n_df.at[369, "text"] = "Luke...Luke...Do not...Do not underestimate the powers of the Emperor, or suffer your father's fate, you will. Luke, when gone am I (cough), the last of the Jedi will you be. Luke, the Force runs strong in your  family."
+
+    # fixing the characters that should be just YODA
+    n_df.loc[n_df['character'] == "YODA\t\t (gathering all his strength)"] = "YODA"
+    n_df.loc[n_df['character'] == 'YODA\t (shakes his head)'] = "YODA"
+    n_df.loc[n_df['character'] == 'YODA\t (tickled, chuckles)'] = "YODA"
+
+    # cleaning the text of the dataframe
+    n_df["text"] = n_df["text"].apply(fixString)
+
+    # removing the rows where the character is the narrator
+    n_df = n_df[n_df['character'] != "narrator"]
+    # now resetting the index of the df
+    n_df.reset_index(inplace=True)
+
+    breakpoint()
     # making the new df
-    n_df = make_new_df(df)
+    n_df = make_new_df(n_df)
+
     # prepare inputs
     prepare_inputs(history=the_history, persona=the_persona, dataframe=n_df)
 
