@@ -161,21 +161,54 @@ def prepare_inputs(persona: list, history= None, reply= None, dataframe=None):
       sequence, words, position, speakers = prep_inputs_internal(persona, history, reply, speakers)
 
       v = [sequence, words, position, speakers]
+      # putting all the pointer in a list to loop through
+      filePointers  =  [open(pointer, mode="ab") for pointer in file_pointers]
       # looping through the file pointers
       breakpoint()
-      for i, pointer in enumerate(file_pointers):
-        # calling the function prepare_intputs_internal
-        file_pointer = open(pointer,  mode="ab",  ) 
-        if i == 0:
-          
-          val = "_".join(v[i]) 
-          val = val.join(",")
-        else:
-          val = v[i].join(",")
+      for i, f in enumerate(filePointers):
+        val = v[i]
 
-        file_pointer.write(val)
+        if i == 0:
+
+          # need to create the string of each of the lists
+          list_of_string = ""
+          theString = ""
+          
+          # looping through the list of list of the sequence
+          for elem in val:
+            theString = ",".join(elem)
+            if not list_of_string:
+              list_of_string = theString
+            else:
+              list_of_string = list_of_string + "_" + theString
+          val  = list_of_string
+
+        else:
+          if isinstance(val[0], int):
+            # need to turn the integer into a string so that it can be written
+            # in the file
+            val = [str(elem) for elem in val]
+
+          val = ",".join(val)
+        
+        # need to now make it a byte 
+        val = val.encode()
+
+        f.write(val)
+        f.write(b"\n")
+
+      # doing a loop which will close all the file pointers
+    for f  in filePointers:
+      f.close() 
     
 
+
+def read_in_file(file_pointer): 
+  """
+  Function that will read in the file and will return a list of the data that
+  is read in.  It will return as a list of lists if need be.
+  """
+  while open()
 # making the new df that contains the context
 def make_new_df(df, reply_at_end= True):
     df = df.copy()
@@ -335,7 +368,7 @@ if __name__ == "__main__":
     # now resetting the index of the df
     n_df.reset_index(inplace=True)
 
-    breakpoint()
+    
     # making the new df
     n_df = make_new_df(n_df)
 
