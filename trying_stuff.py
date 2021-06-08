@@ -203,12 +203,54 @@ def prepare_inputs(persona: list, history= None, reply= None, dataframe=None):
     
 
 
-def read_in_file(file_pointer): 
+def read_in_file(file_pointer, as_df=False, convert_to_int=False): 
   """
   Function that will read in the file and will return a list of the data that
   is read in.  It will return as a list of lists if need be.
   """
-  while open()
+  complete_list = []
+
+  with open(file_pointer,  mode="rb") as file:
+    # trying to retain the comma that is found in the 
+      # list. This is where there are 3 commas together.
+    theList = []
+    found_index_list = []
+    found_at = 0
+    add_end = [] # this is used to add to the end of the list adding a comma if needed
+
+    while True:
+      line = file.readline()
+      # making as a string
+      line = line.decode()
+      if not line:
+        break
+      
+      # removing the n\ char
+      found_at = line.find("<eos>")
+      if found_at != -1:
+        breakpoint()
+        line = line[:found_at + 5]
+      while line:
+        found_at = line.find(",,,")
+
+        # splitting the string
+        if found_at != -1:
+          split_front = line[:found_at] 
+          line = line[found_at + 2:]
+          add_end = [" , "]
+        else:
+          split_front = line
+          line = ""
+          add_end = []
+        # doing the split
+
+        # making the list
+        piece = split_front.split(",")
+        theList = theList + piece + add_end
+    
+        breakpoint()
+      complete_list.append(theList)  
+      
 # making the new df that contains the context
 def make_new_df(df, reply_at_end= True):
     df = df.copy()
@@ -325,57 +367,60 @@ def fixString(s: str):
 
 if __name__ == "__main__":
 
-    the_persona = [
-               ["yoda", "my", "name", "is","."],
-               ["small", "am", "i", "and", "green", "."],
-               ["feel", "the", "force", "i", "do", "."], 
-              ["control", "our", "fears", "we", "must", "or", "to", "the", "dark", "side", "we", "will", "go", "."],
-               ["hard",  "to", "see", "the", "dark", "side", "is", "."]
+#     the_persona = [
+#                ["yoda", "my", "name", "is","."],
+#                ["small", "am", "i", "and", "green", "."],
+#                ["feel", "the", "force", "i", "do", "."], 
+#               ["control", "our", "fears", "we", "must", "or", "to", "the", "dark", "side", "we", "will", "go", "."],
+#                ["hard",  "to", "see", "the", "dark", "side", "is", "."]
                
-]
+# ]
 
-    the_history = [
-               ["i", "will", "try", "to", "do", "what", "you", "say", "master", "yoda", "."],
-               ["do",  "or",  "do", "not", ".",   "there",  "is",  "no",  "try", "."],
-               ["you", "are", "so", "small", "how", "do" ,"you", "have", "so", "much", "power", "?"]
+#     the_history = [
+#                ["i", "will", "try", "to", "do", "what", "you", "say", "master", "yoda", "."],
+#                ["do",  "or",  "do", "not", ".",   "there",  "is",  "no",  "try", "."],
+#                ["you", "are", "so", "small", "how", "do" ,"you", "have", "so", "much", "power", "?"]
 
-    ]
+#     ]
 
-    # getting the yoda dataframe
-    df = get_yoda_corpus()
-    n_df = df.copy()
+#     # getting the yoda dataframe
+#     df = get_yoda_corpus()
+#     n_df = df.copy()
 
 
-    # fixing the speech of the Yoda
-    fixList = markfixingYodaSpeech(n_df)
+#     # fixing the speech of the Yoda
+#     fixList = markfixingYodaSpeech(n_df)
 
-    # fixing the list that is given
-    # This is the fixing of the Yoda speech
-    n_df.at[343, "text"] = "Strong am I with the Force... but not that strong! Twilight is upon me and soon night must fall." 
-    n_df.at[367, "text"] = "Remember, a Jedi's strength flows from the Force.  But beware.  Anger, fear, aggression. The dark side are they.  Once you start down the dark path, forever will it dominate your destiny."
-    n_df.at[369, "text"] = "Luke...Luke...Do not...Do not underestimate the powers of the Emperor, or suffer your father's fate, you will. Luke, when gone am I (cough), the last of the Jedi will you be. Luke, the Force runs strong in your  family."
+#     # fixing the list that is given
+#     # This is the fixing of the Yoda speech
+#     n_df.at[343, "text"] = "Strong am I with the Force... but not that strong! Twilight is upon me and soon night must fall." 
+#     n_df.at[367, "text"] = "Remember, a Jedi's strength flows from the Force.  But beware.  Anger, fear, aggression. The dark side are they.  Once you start down the dark path, forever will it dominate your destiny."
+#     n_df.at[369, "text"] = "Luke...Luke...Do not...Do not underestimate the powers of the Emperor, or suffer your father's fate, you will. Luke, when gone am I (cough), the last of the Jedi will you be. Luke, the Force runs strong in your  family."
 
-    # fixing the characters that should be just YODA
-    n_df.loc[n_df['character'] == "YODA\t\t (gathering all his strength)"] = "YODA"
-    n_df.loc[n_df['character'] == 'YODA\t (shakes his head)'] = "YODA"
-    n_df.loc[n_df['character'] == 'YODA\t (tickled, chuckles)'] = "YODA"
+#     # fixing the characters that should be just YODA
+#     n_df.loc[n_df['character'] == "YODA\t\t (gathering all his strength)"] = "YODA"
+#     n_df.loc[n_df['character'] == 'YODA\t (shakes his head)'] = "YODA"
+#     n_df.loc[n_df['character'] == 'YODA\t (tickled, chuckles)'] = "YODA"
 
-    # cleaning the text of the dataframe
-    n_df["text"] = n_df["text"].apply(fixString)
+#     # cleaning the text of the dataframe
+#     n_df["text"] = n_df["text"].apply(fixString)
 
-    # removing the rows where the character is the narrator
-    n_df = n_df[n_df['character'] != "narrator"]
-    # now resetting the index of the df
-    n_df.reset_index(inplace=True)
-
-    
-    # making the new df
-    n_df = make_new_df(n_df)
-
-    # prepare inputs
-    prepare_inputs(history=the_history, persona=the_persona, dataframe=n_df)
-
+#     # removing the rows where the character is the narrator
+#     n_df = n_df[n_df['character'] != "narrator"]
+#     # now resetting the index of the df
+#     n_df.reset_index(inplace=True)
 
     
+#     # making the new df
+#     n_df = make_new_df(n_df)
 
-    print(n_df)
+#     # prepare inputs
+#     prepare_inputs(history=the_history, persona=the_persona, dataframe=n_df)
+
+
+    
+
+#     print(n_df)
+
+  # doing the reading in of the files
+  read_in_file("./words")
