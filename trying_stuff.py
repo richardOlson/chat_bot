@@ -164,7 +164,7 @@ def prepare_inputs(persona: list, history= None, reply= None, dataframe=None):
       # putting all the pointer in a list to loop through
       filePointers  =  [open(pointer, mode="ab") for pointer in file_pointers]
       # looping through the file pointers
-      breakpoint()
+      
       for i, f in enumerate(filePointers):
         val = v[i]
 
@@ -180,7 +180,7 @@ def prepare_inputs(persona: list, history= None, reply= None, dataframe=None):
             if not list_of_string:
               list_of_string = theString
             else:
-              list_of_string = list_of_string + "_" + theString
+              list_of_string = list_of_string + "___" + theString
           val  = list_of_string
 
         else:
@@ -217,39 +217,61 @@ def read_in_file(file_pointer, as_df=False, convert_to_int=False):
     found_index_list = []
     found_at = 0
     add_end = [] # this is used to add to the end of the list adding a comma if needed
-
+    check_for_sequence = False
+    lineList = [] # this is the list that is looped through to for each of the lines of the data
+    linePeices = [] # this is the line pieces that are added together to make the complete line
     while True:
       line = file.readline()
       # making as a string
       line = line.decode()
       if not line:
         break
-      
+      # taking care of a sequence
+      # a sequence will be a list in a list
+      find_sequenc = line.find("___")
+      if find_sequenc != -1:
+        check_for_sequence = True
+
       # removing the n\ char
       found_at = line.find("<eos>")
       if found_at != -1:
         breakpoint()
         line = line[:found_at + 5]
-      while line:
-        found_at = line.find(",,,")
 
-        # splitting the string
-        if found_at != -1:
-          split_front = line[:found_at] 
-          line = line[found_at + 2:]
-          add_end = [" , "]
-        else:
-          split_front = line
-          line = ""
-          add_end = []
-        # doing the split
+      # putting the line in a list and then will loop through the list
+      # doing it this way to take care of the sequence
+      if find_sequenc:
+        while line:
+          if find_sequenc != -1:
+            lineList.append(line[:find_sequenc])
+            line = line[find_sequenc + 3 :]
+          else:
+            lineList.append(line)
+            line = ""
+      # now looping through the lineList
+      for line in lineList:
+        while line:
+          found_at = line.find(",,,")
 
-        # making the list
-        piece = split_front.split(",")
-        theList = theList + piece + add_end
-    
+          # splitting the string
+          if found_at != -1:
+            split_front = line[:found_at] 
+            line = line[found_at + 2:]
+            add_end = [" , "]
+          else:
+            split_front = line
+            line = ""
+            add_end = []
+          # doing the split
+
+          # making the list
+          piece = split_front.split(",")
+          theList = theList + piece + add_end
+        # now adding theList to the 
+        linePeices.append(theList)
+      
         breakpoint()
-      complete_list.append(theList)  
+      complete_list.append(linePeices)  
       
 # making the new df that contains the context
 def make_new_df(df, reply_at_end= True):
@@ -367,55 +389,55 @@ def fixString(s: str):
 
 if __name__ == "__main__":
 
-#     the_persona = [
-#                ["yoda", "my", "name", "is","."],
-#                ["small", "am", "i", "and", "green", "."],
-#                ["feel", "the", "force", "i", "do", "."], 
-#               ["control", "our", "fears", "we", "must", "or", "to", "the", "dark", "side", "we", "will", "go", "."],
-#                ["hard",  "to", "see", "the", "dark", "side", "is", "."]
+    the_persona = [
+               ["yoda", "my", "name", "is","."],
+               ["small", "am", "i", "and", "green", "."],
+               ["feel", "the", "force", "i", "do", "."], 
+              ["control", "our", "fears", "we", "must", "or", "to", "the", "dark", "side", "we", "will", "go", "."],
+               ["hard",  "to", "see", "the", "dark", "side", "is", "."]
                
-# ]
+]
 
-#     the_history = [
-#                ["i", "will", "try", "to", "do", "what", "you", "say", "master", "yoda", "."],
-#                ["do",  "or",  "do", "not", ".",   "there",  "is",  "no",  "try", "."],
-#                ["you", "are", "so", "small", "how", "do" ,"you", "have", "so", "much", "power", "?"]
+    the_history = [
+               ["i", "will", "try", "to", "do", "what", "you", "say", "master", "yoda", "."],
+               ["do",  "or",  "do", "not", ".",   "there",  "is",  "no",  "try", "."],
+               ["you", "are", "so", "small", "how", "do" ,"you", "have", "so", "much", "power", "?"]
 
-#     ]
+    ]
 
-#     # getting the yoda dataframe
-#     df = get_yoda_corpus()
-#     n_df = df.copy()
+    # getting the yoda dataframe
+    df = get_yoda_corpus()
+    n_df = df.copy()
 
 
-#     # fixing the speech of the Yoda
-#     fixList = markfixingYodaSpeech(n_df)
+    # fixing the speech of the Yoda
+    fixList = markfixingYodaSpeech(n_df)
 
-#     # fixing the list that is given
-#     # This is the fixing of the Yoda speech
-#     n_df.at[343, "text"] = "Strong am I with the Force... but not that strong! Twilight is upon me and soon night must fall." 
-#     n_df.at[367, "text"] = "Remember, a Jedi's strength flows from the Force.  But beware.  Anger, fear, aggression. The dark side are they.  Once you start down the dark path, forever will it dominate your destiny."
-#     n_df.at[369, "text"] = "Luke...Luke...Do not...Do not underestimate the powers of the Emperor, or suffer your father's fate, you will. Luke, when gone am I (cough), the last of the Jedi will you be. Luke, the Force runs strong in your  family."
+    # fixing the list that is given
+    # This is the fixing of the Yoda speech
+    n_df.at[343, "text"] = "Strong am I with the Force... but not that strong! Twilight is upon me and soon night must fall." 
+    n_df.at[367, "text"] = "Remember, a Jedi's strength flows from the Force.  But beware.  Anger, fear, aggression. The dark side are they.  Once you start down the dark path, forever will it dominate your destiny."
+    n_df.at[369, "text"] = "Luke...Luke...Do not...Do not underestimate the powers of the Emperor, or suffer your father's fate, you will. Luke, when gone am I (cough), the last of the Jedi will you be. Luke, the Force runs strong in your  family."
 
-#     # fixing the characters that should be just YODA
-#     n_df.loc[n_df['character'] == "YODA\t\t (gathering all his strength)"] = "YODA"
-#     n_df.loc[n_df['character'] == 'YODA\t (shakes his head)'] = "YODA"
-#     n_df.loc[n_df['character'] == 'YODA\t (tickled, chuckles)'] = "YODA"
+    # fixing the characters that should be just YODA
+    n_df.loc[n_df['character'] == "YODA\t\t (gathering all his strength)"] = "YODA"
+    n_df.loc[n_df['character'] == 'YODA\t (shakes his head)'] = "YODA"
+    n_df.loc[n_df['character'] == 'YODA\t (tickled, chuckles)'] = "YODA"
 
-#     # cleaning the text of the dataframe
-#     n_df["text"] = n_df["text"].apply(fixString)
+    # cleaning the text of the dataframe
+    n_df["text"] = n_df["text"].apply(fixString)
 
-#     # removing the rows where the character is the narrator
-#     n_df = n_df[n_df['character'] != "narrator"]
-#     # now resetting the index of the df
-#     n_df.reset_index(inplace=True)
+    # removing the rows where the character is the narrator
+    n_df = n_df[n_df['character'] != "narrator"]
+    # now resetting the index of the df
+    n_df.reset_index(inplace=True)
 
     
-#     # making the new df
-#     n_df = make_new_df(n_df)
+    # making the new df
+    n_df = make_new_df(n_df)
 
-#     # prepare inputs
-#     prepare_inputs(history=the_history, persona=the_persona, dataframe=n_df)
+    # prepare inputs
+    prepare_inputs(history=the_history, persona=the_persona, dataframe=n_df)
 
 
     
@@ -423,4 +445,4 @@ if __name__ == "__main__":
 #     print(n_df)
 
   # doing the reading in of the files
-  read_in_file("./words")
+  # read_in_file("./words")
